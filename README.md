@@ -11,11 +11,13 @@ flowchart LR
     PC[Bilgisayar, seri terminal] -- "USART3, 115200" --- MCU[STM32F407VG]
     MCU -- "USART2 tek tel, PA2" --- UART[PDN_UART]
     MCU -- "TIM4 CH1, 1 kHz, PD12" --> STEP[STEP]
-    MCU -- "PD13, PD14" --> CTRL[EN ve DIR]
+    MCU -- "PD13" --> EN[EN]
+    MCU -- "PD14" --> DIR[DIR]
     subgraph TMC2209
         UART
         STEP
-        CTRL
+        EN
+        DIR
     end
     TMC2209 --> M((Step motor))
 ```
@@ -26,7 +28,8 @@ flowchart LR
 |---|---|---|
 | PA2 | PDN_UART | USART2, yarı çift yönlü tek tel |
 | PD12 | STEP | TIM4 CH1, 1 kHz, %50 duty |
-| PD13, PD14 | EN ve DIR | ikisi de 0'da tutuluyor: sürücü açık, yön sabit |
+| PD13 | EN | 0 iken sürücü açık, yazılım hep 0'da tutuyor |
+| PD14 | DIR | dönüş yönü, yazılımda sabit 0 |
 | PB10 | | USART3 TX, USB-TTL dönüştürücünün RX ucuna |
 | PB11 | | USART3 RX |
 | GND | GND | ortak toprak |

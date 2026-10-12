@@ -46,6 +46,9 @@
 #define TMC_REG_DRV_STATUS  0x6FU
 
 #define TMC_READ_ERROR      0xFFFFFFFFUL
+
+#define TMC_EN_PIN          GPIO_PIN_13   /* PD13, 0 iken surucu acik */
+#define TMC_DIR_PIN         GPIO_PIN_14   /* PD14, donus yonu */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -276,9 +279,8 @@ int main(void)
 
   log_print("TMC2209 hazir\r\n");
 
-  /* PD13 ve PD14 surucunun EN ve DIR girislerine gidiyor, ikisi de 0'da tutulur:
-   * surucu acik, yon sabit. */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13 | GPIO_PIN_14, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, TMC_DIR_PIN, GPIO_PIN_RESET);   /* yon sabit */
+  HAL_GPIO_WritePin(GPIOD, TMC_EN_PIN, GPIO_PIN_RESET);    /* cikis katini ac */
   /* USER CODE END 2 */
 
   /* Infinite loop */
