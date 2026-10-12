@@ -1,5 +1,7 @@
 # STM32F407 ile TMC2209: UART üzerinden ayar ve durum okuma
 
+> [TECH-OHM](https://tech-ohm.com) açık kaynak projesi
+
 TMC2209 step motor sürücüsünü sadece STEP/DIR pinleriyle değil, tek telli UART hattı üzerinden de yöneten yazılım. Akımı, mikro adımı ve çalışma modunu register'lara yazıyor, sürücünün durumunu (ısınma, kısa devre, açık devre, anlık akım) okuyup terminale döküyor.
 
 Sürücüyü potansiyometreyle ayarlamak yerine yazılımdan ayarlamak ve motor çalışırken ne olduğunu görmek istediğim için yazdım.
@@ -125,4 +127,10 @@ MIT. `Drivers` klasöründeki STM32 HAL ve CMSIS dosyaları kendi lisanslarıyla
 
 ## Yazar
 
-Gömülü Sistem Mühendisi M. Eyüb Can, [TECH-OHM](https://tech-ohm.com)
+Gömülü Sistem Mühendisi M. Eyüb Can, [TECH-OHM](https://tech-ohm.com) kurucusu
+
+## TECH-OHM
+
+[TECH-OHM](https://tech-ohm.com) elektronik kart ve gömülü yazılım tasarlayan bir mühendislik firması. Fikirden seri üretime kadar tasarım işi alıyor, TECH-OHM Akademi'de 12 aylık gömülü sistem eğitimi ve şirketlere özel danışmanlık veriyor.
+
+Web: [tech-ohm.com](https://tech-ohm.com) · E-posta: info@tech-ohm.com
