@@ -97,19 +97,19 @@ Terminalde şuna benzer satırlar görürsün:
 
 ```
 IOIN = 0x........
-GCONF yazildi
-CHOPCONF yazildi
-IHOLD_IRUN yazildi: IRUN=18 IHOLD=5
-IFCNT farki = 4 (4 olmali)
-TMC2209 hazir
+GCONF written
+CHOPCONF written
+IHOLD_IRUN written: IRUN=18 IHOLD=5
+IFCNT delta = 4 (expected 4)
+TMC2209 ready
 
 === DRV_STATUS: 0x........ ===
 CS_ACTUAL     : 18 / 31
-[OK] Hata yok
+[OK] No faults
 ========================
 ```
 
-"UART zaman asimi" görüyorsan sürücü cevap vermiyordur. Önce motor beslemesinin (VM) verili olduğuna ve PA2'nin PDN_UART pinine gittiğine bak.
+"UART timeout" görüyorsan sürücü cevap vermiyordur. Önce motor beslemesinin (VM) verili olduğuna ve PA2'nin PDN_UART pinine gittiğine bak.
 
 ## Hız
 

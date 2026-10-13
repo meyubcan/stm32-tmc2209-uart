@@ -95,23 +95,23 @@ The motor runs for 3 seconds and stops for 2. While it runs, `DRV_STATUS` (0x6F)
 | 30 | STEALTH | running in StealthChop |
 | 31 | STST | motor at standstill |
 
-Terminal output looks like this (the log text is in Turkish):
+Terminal output looks like this:
 
 ```
 IOIN = 0x........
-GCONF yazildi
-CHOPCONF yazildi
-IHOLD_IRUN yazildi: IRUN=18 IHOLD=5
-IFCNT farki = 4 (4 olmali)
-TMC2209 hazir
+GCONF written
+CHOPCONF written
+IHOLD_IRUN written: IRUN=18 IHOLD=5
+IFCNT delta = 4 (expected 4)
+TMC2209 ready
 
 === DRV_STATUS: 0x........ ===
 CS_ACTUAL     : 18 / 31
-[OK] Hata yok
+[OK] No faults
 ========================
 ```
 
-If you see "UART zaman asimi" (UART timeout), the driver is not answering. Check that motor supply (VM) is present and that PA2 reaches the PDN_UART pin.
+If you see "UART timeout", the driver is not answering. Check that motor supply (VM) is present and that PA2 reaches the PDN_UART pin.
 
 ## Speed
 

@@ -35,7 +35,7 @@
 /* USER CODE BEGIN PD */
 #define TMC_SYNC            0x05U
 #define TMC_SLAVE_ADDR      0x00U    /* MS1 = MS2 = GND */
-#define TMC_MASTER_ADDR     0xFFU    /* surucu cevabi bu adrese yollar */
+#define TMC_MASTER_ADDR     0xFFU    /* the driver sends its reply to this address */
 #define TMC_WRITE_FLAG      0x80U
 
 #define TMC_REG_GCONF       0x00U
@@ -48,8 +48,8 @@
 
 #define TMC_READ_ERROR      0xFFFFFFFFUL
 
-#define TMC_EN_PIN          GPIO_PIN_13   /* PD13, 0 iken surucu acik */
-#define TMC_DIR_PIN         GPIO_PIN_14   /* PD14, donus yonu */
+#define TMC_EN_PIN          GPIO_PIN_13   /* PD13, driver is enabled when low */
+#define TMC_DIR_PIN         GPIO_PIN_14   /* PD14, direction */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -83,13 +83,13 @@ static void     TMC_ReportStatus(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-/* Terminal ciktisi USART3 uzerinden (115200 8N1) */
+/* Terminal output goes out on USART3 (115200 8N1) */
 static void log_print(const char *s)
 {
   HAL_UART_Transmit(&huart3, (uint8_t *)s, (uint16_t)strlen(s), 100);
 }
 
-/* TMC2209 datagram CRC'si: polinom x^8 + x^2 + x + 1, baytlar LSB'den islenir */
+/* TMC2209 datagram CRC: polynomial x^8 + x^2 + x + 1, bytes processed LSB first */
 static uint8_t TMC_CRC(const uint8_t *data, uint8_t len)
 {
   uint8_t crc = 0;
@@ -107,7 +107,7 @@ static uint8_t TMC_CRC(const uint8_t *data, uint8_t len)
   return crc;
 }
 
-/* Yazma datagrami 8 bayt: sync, adres, register | 0x80, 4 bayt veri (MSB once), CRC */
+/* Write datagram, 8 bytes: sync, address, register | 0x80, 4 data bytes (MSB first), CRC */
 static void TMC_WriteReg(uint8_t reg, uint32_t value)
 {
   uint8_t data[8];
@@ -125,9 +125,9 @@ static void TMC_WriteReg(uint8_t reg, uint32_t value)
   HAL_UART_Transmit(&huart2, data, 8, 100);
 }
 
-/* Okuma istegi 4 bayt: sync, adres, register, CRC. Surucu ayni hattan 8 baytla
- * cevap verir: sync, 0xFF, register, 4 bayt veri, CRC. Hat tek tel oldugu icin
- * istek gittikten sonra USART aliciya cevrilir. */
+/* Read request, 4 bytes: sync, address, register, CRC. The driver replies on the
+ * same wire with 8 bytes: sync, 0xFF, register, 4 data bytes, CRC. It is a single
+ * wire, so the USART switches to receive once the request is out. */
 static uint32_t TMC_ReadReg(uint8_t reg)
 {
   uint8_t req[4];
@@ -144,16 +144,16 @@ static uint32_t TMC_ReadReg(uint8_t reg)
 
   HAL_HalfDuplex_EnableReceiver(&huart2);
   if (HAL_UART_Receive(&huart2, resp, 8, 200) != HAL_OK) {
-    log_print("UART zaman asimi, surucu cevap vermedi\r\n");
+    log_print("UART timeout, no reply from the driver\r\n");
     return TMC_READ_ERROR;
   }
 
-  snprintf(line, sizeof(line), "Ham veri: %02X %02X %02X %02X %02X %02X %02X %02X\r\n",
+  snprintf(line, sizeof(line), "Raw: %02X %02X %02X %02X %02X %02X %02X %02X\r\n",
            resp[0], resp[1], resp[2], resp[3], resp[4], resp[5], resp[6], resp[7]);
   log_print(line);
 
   if (resp[0] != TMC_SYNC || resp[1] != TMC_MASTER_ADDR || resp[7] != TMC_CRC(resp, 7)) {
-    log_print("Cevap bozuk (sync, adres ya da CRC tutmuyor)\r\n");
+    log_print("Bad reply (sync, address or CRC mismatch)\r\n");
     return TMC_READ_ERROR;
   }
 
@@ -161,26 +161,26 @@ static uint32_t TMC_ReadReg(uint8_t reg)
          ((uint32_t)resp[5] << 8)  |  (uint32_t)resp[6];
 }
 
-/* DRV_STATUS registerini okur ve bitlerini terminale acik acik yazar */
+/* Reads DRV_STATUS and prints its bits to the terminal in plain words */
 static void TMC_ReportStatus(void)
 {
   static const struct { uint8_t bit; const char *text; } flags[] = {
-    { 0,  "[UYARI] OTPW  : isinma on uyarisi\r\n" },
-    { 1,  "[HATA]  OT    : asiri isinma, surucu kapandi\r\n" },
-    { 2,  "[HATA]  S2GA  : A fazi topraga kisa devre\r\n" },
-    { 3,  "[HATA]  S2GB  : B fazi topraga kisa devre\r\n" },
-    { 4,  "[HATA]  S2VSA : A fazi beslemeye kisa devre\r\n" },
-    { 5,  "[HATA]  S2VSB : B fazi beslemeye kisa devre\r\n" },
-    { 6,  "[UYARI] OLA   : A fazi acik devre\r\n" },
-    { 7,  "[UYARI] OLB   : B fazi acik devre\r\n" },
-    { 8,  "[BILGI] T120  : sicaklik 120 C ustunde\r\n" },
-    { 9,  "[BILGI] T143  : sicaklik 143 C ustunde\r\n" },
-    { 10, "[BILGI] T150  : sicaklik 150 C ustunde\r\n" },
-    { 11, "[BILGI] T157  : sicaklik 157 C ustunde\r\n" },
-    { 30, "[BILGI] STEALTH: StealthChop modunda\r\n" },
-    { 31, "[BILGI] STST  : motor duruyor\r\n" },
+    { 0,  "[WARN]  OTPW  : overtemperature pre-warning\r\n" },
+    { 1,  "[ERROR] OT    : overtemperature, driver shut down\r\n" },
+    { 2,  "[ERROR] S2GA  : phase A shorted to ground\r\n" },
+    { 3,  "[ERROR] S2GB  : phase B shorted to ground\r\n" },
+    { 4,  "[ERROR] S2VSA : phase A shorted to supply\r\n" },
+    { 5,  "[ERROR] S2VSB : phase B shorted to supply\r\n" },
+    { 6,  "[WARN]  OLA   : phase A open load\r\n" },
+    { 7,  "[WARN]  OLB   : phase B open load\r\n" },
+    { 8,  "[INFO]  T120  : temperature above 120 C\r\n" },
+    { 9,  "[INFO]  T143  : temperature above 143 C\r\n" },
+    { 10, "[INFO]  T150  : temperature above 150 C\r\n" },
+    { 11, "[INFO]  T157  : temperature above 157 C\r\n" },
+    { 30, "[INFO]  STEALTH: running in StealthChop\r\n" },
+    { 31, "[INFO]  STST  : motor at standstill\r\n" },
   };
-  const uint32_t fault_mask = 0x000000FEUL;   /* OT, kisa devre ve acik devre bitleri */
+  const uint32_t fault_mask = 0x000000FEUL;   /* OT, short and open-load bits */
   char line[64];
 
   uint32_t drv = TMC_ReadReg(TMC_REG_DRV_STATUS);
@@ -197,12 +197,12 @@ static void TMC_ReportStatus(void)
     }
   }
 
-  /* CS_ACTUAL: surucunun o an uyguladigi akim kademesi, 0..31 */
+  /* CS_ACTUAL: the current step the driver applies right now, 0..31 */
   snprintf(line, sizeof(line), "CS_ACTUAL     : %lu / 31\r\n", (unsigned long)((drv >> 16) & 0x1FUL));
   log_print(line);
 
   if ((drv & fault_mask) == 0U) {
-    log_print("[OK] Hata yok\r\n");
+    log_print("[OK] No faults\r\n");
   }
   log_print("========================\r\n");
 }
@@ -242,46 +242,46 @@ int main(void)
   /* USER CODE BEGIN 2 */
   char buf[64];
 
-  HAL_Delay(500);   /* surucu beslemesi otursun */
+  HAL_Delay(500);   /* let the driver supply settle */
 
-  /* Baglanti testi: IOIN okunabiliyorsa UART hatti calisiyor demektir */
+  /* Link test: if IOIN reads back, the UART line works */
   uint32_t ioin = TMC_ReadReg(TMC_REG_IOIN);
   snprintf(buf, sizeof(buf), "IOIN = 0x%08lX\r\n", (unsigned long)ioin);
   log_print(buf);
 
   uint32_t ifcnt_before = TMC_ReadReg(TMC_REG_IFCNT);
 
-  /* GCONF: pdn_disable = 1 (PDN pini UART icin kullaniliyor),
-   *        mstep_reg_select = 1 (mikro adim MS pinlerinden degil registerdan),
-   *        en_SpreadCycle = 0 (StealthChop, sessiz mod) */
+  /* GCONF: pdn_disable = 1 (PDN pin is used for UART),
+   *        mstep_reg_select = 1 (microsteps come from the register, not the MS pins),
+   *        en_SpreadCycle = 0 (StealthChop, quiet mode) */
   TMC_WriteReg(TMC_REG_GCONF, (1UL << 6) | (1UL << 7));
-  log_print("GCONF yazildi\r\n");
+  log_print("GCONF written\r\n");
 
-  /* CHOPCONF: MRES = 4 (16 mikro adim), intpol = 1, TOFF = 3, HSTRT = 5 */
+  /* CHOPCONF: MRES = 4 (16 microsteps), intpol = 1, TOFF = 3, HSTRT = 5 */
   TMC_WriteReg(TMC_REG_CHOPCONF, (0x04UL << 24) | 0x10000053UL);
-  log_print("CHOPCONF yazildi\r\n");
+  log_print("CHOPCONF written\r\n");
 
-  /* IHOLD_IRUN: calisma akimi 18/31, bekleme akimi 5/31, gecis gecikmesi 6.
-   * Gercek amper degeri karttaki sense direncine baglidir. */
+  /* IHOLD_IRUN: run current 18/31, hold current 5/31, hold delay 6.
+   * The value in amps depends on the sense resistors on the board. */
   TMC_WriteReg(TMC_REG_IHOLD_IRUN, (6UL << 16) | (18UL << 8) | 5UL);
-  log_print("IHOLD_IRUN yazildi: IRUN=18 IHOLD=5\r\n");
+  log_print("IHOLD_IRUN written: IRUN=18 IHOLD=5\r\n");
 
-  /* TPOWERDOWN: motor durduktan yaklasik 0.4 s sonra bekleme akimina gec */
+  /* TPOWERDOWN: drop to hold current about 0.4 s after the motor stops */
   TMC_WriteReg(TMC_REG_TPOWERDOWN, 20);
 
-  /* IFCNT her gecerli yazmada bir artar. Dort yazma yapildi, fark 4 olmali. */
+  /* IFCNT goes up by one on every valid write. Four writes were sent, so the difference must be 4. */
   HAL_Delay(10);
   uint32_t ifcnt_after = TMC_ReadReg(TMC_REG_IFCNT);
   if (ifcnt_before != TMC_READ_ERROR && ifcnt_after != TMC_READ_ERROR) {
-    snprintf(buf, sizeof(buf), "IFCNT farki = %lu (4 olmali)\r\n",
+    snprintf(buf, sizeof(buf), "IFCNT delta = %lu (expected 4)\r\n",
              (unsigned long)((ifcnt_after - ifcnt_before) & 0xFFUL));
     log_print(buf);
   }
 
-  log_print("TMC2209 hazir\r\n");
+  log_print("TMC2209 ready\r\n");
 
-  HAL_GPIO_WritePin(GPIOD, TMC_DIR_PIN, GPIO_PIN_RESET);   /* yon sabit */
-  HAL_GPIO_WritePin(GPIOD, TMC_EN_PIN, GPIO_PIN_RESET);    /* cikis katini ac */
+  HAL_GPIO_WritePin(GPIOD, TMC_DIR_PIN, GPIO_PIN_RESET);   /* fixed direction */
+  HAL_GPIO_WritePin(GPIOD, TMC_EN_PIN, GPIO_PIN_RESET);    /* enable the output stage */
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -291,12 +291,12 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    /* STEP darbeleri TIM4 CH1'den (PD12), 1 kHz. 16 mikro adimda 1.8 derecelik
-     * motor icin yaklasik 19 devir/dakika eder. */
+    /* STEP pulses come from TIM4 CH1 (PD12) at 1 kHz. With 16 microsteps and a
+     * 1.8 degree motor that is about 19 rpm. */
     HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
     HAL_Delay(1500);
 
-    /* Durum motor donerken okunur, acik devre bitleri sadece o zaman anlamli */
+    /* Status is read while the motor runs. The open-load bits only mean something then. */
     TMC_ReportStatus();
 
     HAL_Delay(1500);
